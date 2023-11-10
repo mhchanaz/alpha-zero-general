@@ -11,9 +11,9 @@ class Connect4Game(Game):
     Connect4 Game class implementing the alpha-zero-general Game interface.
     """
 
-    def __init__(self, height=None, width=None, win_length=None, np_pieces=None):
+    def __init__(self, height=None, width=None, np_pieces=None):
         Game.__init__(self)
-        self._base_board = Board(height, width, win_length, np_pieces)
+        self._base_board = Board(height, width, np_pieces)
 
     def getInitBoard(self):
         return self._base_board.np_pieces
@@ -38,10 +38,7 @@ class Connect4Game(Game):
         b = self._base_board.with_np_pieces(np_pieces=board)
         winstate = b.get_win_state()
         if winstate.is_ended:
-            if winstate.winner is None:
-                # draw has very little value.
-                return 1e-4
-            elif winstate.winner == player:
+            if winstate.winner == player:
                 return +1
             elif winstate.winner == -player:
                 return -1

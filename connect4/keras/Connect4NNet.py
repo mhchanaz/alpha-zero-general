@@ -5,59 +5,7 @@ from utils import *
 import argparse
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.activations import *
-
-def relu_bn(inputs):
-    relu1 = relu(inputs)
-    bn = BatchNormalization()(relu1)
-    return bn
-
-def residual_block(x, filters, kernel_size=3):
-    y = Conv2D(kernel_size=kernel_size,
-               strides= (1),
-               filters=filters,
-               padding="same")(x)
-
-    y = relu_bn(y)
-    y = Conv2D(kernel_size=kernel_size,
-               strides=1,
-               filters=filters,
-               padding="same")(y)
-
-    y = BatchNormalization()(y)
-    out = Add()([x, y])
-    out = relu(out)
-
-    return out
-
-def value_head(input):
-    conv1 = Conv2D(kernel_size=1,
-                strides=1,
-                filters=1,
-                padding="same")(input)
-
-    bn1 = BatchNormalization()(conv1)
-    bn1_relu = relu(bn1)
-
-    flat = Flatten()(bn1_relu)
-
-    dense1 = Dense(256)(flat)
-    dn_relu = relu(dense1)
-
-    dense2 = Dense(256)(dn_relu)
-
-    return dense2
-
-def policy_head(input):
-    conv1 = Conv2D(kernel_size=2,
-                strides=1,
-                filters=1,
-                padding="same")(input)
-    bn1 = BatchNormalization()(conv1)
-    bn1_relu = relu(bn1)
-    flat = Flatten()(bn1_relu)
-    return flat
+from tensorflow.keras.optimizers import *
 
 class Connect4NNet():
     def __init__(self, game, args):
@@ -67,33 +15,18 @@ class Connect4NNet():
         self.args = args
 
         # Neural Net
-        # Inputs
-        self.input_boards = Input(shape=(self.board_x, self.board_y))
-        inputs = Reshape((self.board_x, self.board_y, 1))(self.input_boards)
+        self.input_boards = Input(shape=(self.board_x, self.board_y))    # s: batch_size x board_x x board_y
 
-
-        bn1 = BatchNormalization()(inputs)
-        conv1 = Conv2D(args.num_channels, kernel_size=3, strides=1, padding="same")(bn1)
-        t = relu_bn(conv1)
-
-
-        for i in range(self.args.num_residual_layers):
-                t = residual_block(t, filters=self.args.num_channels)
-
-        self.pi = Dense(self.action_size, activation='softmax', name='pi')(policy_head(t))
-        self.v = Dense(1, activation='tanh', name='v')(value_head(t))
-	
-	self.calculate_loss()
+        x_image = Reshape((self.board_x, self.board_y, 1))(self.input_boards)                # batch_size  x board_x x board_y x 1
+        h_conv1 = Activation('relu')(BatchNormalization(axis=3)(Conv2D(args.num_channels, 3, padding='same', use_bias=False)(x_image)))         # batch_size  x board_x x board_y x num_channels
+        h_conv2 = Activation('relu')(BatchNormalization(axis=3)(Conv2D(args.num_channels, 3, padding='same', use_bias=False)(h_conv1)))         # batch_size  x board_x x board_y x num_channels
+        h_conv3 = Activation('relu')(BatchNormalization(axis=3)(Conv2D(args.num_channels, 3, padding='valid', use_bias=False)(h_conv2)))        # batch_size  x (board_x-2) x (board_y-2) x num_channels
+        h_conv4 = Activation('relu')(BatchNormalization(axis=3)(Conv2D(args.num_channels, 3, padding='valid', use_bias=False)(h_conv3)))        # batch_size  x (board_x-4) x (board_y-4) x num_channels
+        h_conv4_flat = Flatten()(h_conv4)       
+        s_fc1 = Dropout(args.dropout)(Activation('relu')(BatchNormalization(axis=1)(Dense(1024, use_bias=False)(h_conv4_flat))))  # batch_size x 1024
+        s_fc2 = Dropout(args.dropout)(Activation('relu')(BatchNormalization(axis=1)(Dense(512, use_bias=False)(s_fc1))))          # batch_size x 1024
+        self.pi = Dense(self.action_size, activation='softmax', name='pi')(s_fc2)   # batch_size x self.action_size
+        self.v = Dense(1, activation='tanh', name='v')(s_fc2)                    # batch_size x 1
 
         self.model = Model(inputs=self.input_boards, outputs=[self.pi, self.v])
-        self.model.compile(loss=[self.loss_pi ,self.loss_v], optimizer=Adam(args.lr))
-
-    def calculate_loss(self):
-        self.target_pis = tf.placeholder(tf.float32, shape=[None, self.action_size])
-        self.target_vs = tf.placeholder(tf.float32, shape=[None])
-        self.loss_pi =  tf.losses.softmax_cross_entropy(self.target_pis, self.pi)
-        self.loss_v = tf.losses.mean_squared_error(self.target_vs, tf.reshape(self.v, shape=[-1,]))
-        self.total_loss = self.loss_pi + self.loss_v
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            self.train_step = tf.train.AdamOptimizer(self.args.lr).minimize(self.total_loss)
+        self.model.compile(loss=['categorical_crossentropy','mean_squared_error'], optimizer=Adam(args.lr))
