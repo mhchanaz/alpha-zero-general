@@ -24,17 +24,21 @@ class Board():
             self.np_pieces = np_pieces
             assert self.np_pieces.shape == (self.height, self.width)
 
-    def add_stone(self, column, player):
+    def add_stone(self, action, player):
         "Create copy of board containing new stone."
-        available_idx, = np.where(self.np_pieces[:, column] == 0)
-        if len(available_idx) == 0:
-            raise ValueError("Can't play column %s on board %s" % (column, self))
+        y = action // self.width
+        x = action % self.width
+        if self.np_pieces[y][x] != 0:
+            raise ValueError("Can't play %s on board %s" % (action, self))
 
-        self.np_pieces[available_idx[-1]][column] = player
+        self.np_pieces[y][x] = player
 
-    def get_valid_moves(self):
-        "Any zero value in top row in a valid move"
-        return self.np_pieces[0] == 0
+    def get_valid_moves(self): 
+        # Check for 0 in the entire array
+        result = self.np_pieces == 0
+
+        # Convert the result to a 1D binary array
+        return result.flatten().astype(int)
 
     def get_win_state(self):
         # Input: board = current configuration of the 11x11 matrix
