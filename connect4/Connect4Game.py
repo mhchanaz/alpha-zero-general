@@ -42,6 +42,8 @@ class Connect4Game(Game):
                 return +1
             elif winstate.winner == -player:
                 return -1
+            elif winstate.winner == -0.01:
+                return 0.01 * (player == -1) # Give less reward when winning via a draw
             else:
                 raise ValueError('Unexpected winstate found: ', winstate)
         else:

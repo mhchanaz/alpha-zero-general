@@ -120,7 +120,7 @@ class Board():
                                 return WinState(True, cur_color)
 
         if blank_nodes == 0: #当所有位置都被下完后，返回和局, Which is player 2's win
-            return WinState(True, -1)
+            return WinState(True, -0.01)
 
 
         return WinState(False, None)
