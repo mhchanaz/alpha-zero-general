@@ -22,8 +22,8 @@ args = dotdict({
     'cpuct': 1,
 
     'checkpoint': './temp/',
-    'load_model': False,
-    'load_folder_file': ('/dev/models/8x100x50','best.pth.tar'),
+    'load_model': True,
+    'load_folder_file': ('./temp','best.h5'),
     'numItersForTrainExamplesHistory': 20,
 
 })
@@ -45,9 +45,9 @@ def main():
     log.info('Loading the Coach...')
     c = Coach(g, nnet, args)
 
-    if args.load_model:
-        log.info("Loading 'trainExamples' from file...")
-        c.loadTrainExamples()
+    #if args.load_model:
+        # log.info("Loading 'trainExamples' from file...") Not loading due to MemoryError
+        # c.loadTrainExamples()
 
     log.info('Starting the learning process 🎉')
     c.learn()
