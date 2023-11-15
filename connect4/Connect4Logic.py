@@ -53,6 +53,7 @@ class Board():
         directions = [[0,1],[1,0],[1,1],[-1,1]]
         visited_nodes = {}
         blank_nodes = 0
+        # print(board)
         for cur_color in [-1,1]: #依次寻找黑色棋子和白色棋子的联通性
             visited_nodes = {}
             for i in range(11):
