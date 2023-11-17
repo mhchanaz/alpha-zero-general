@@ -17,16 +17,16 @@ raw_args = {
     'numIters': 1000,
     'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,        #
-    'updateThreshold': 0,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+    'updateThreshold': 0.4,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 400,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 0,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 10,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,
 
     'checkpoint': './temp/',
     'load_model': False,
-    'load_folder_file': ('./temp','best.h5'),
-    'numItersForTrainExamplesHistory': 4,
+    'load_folder_file': ('./temp','checkpoint_0.pth.tar'), # Change the checkpoint if training is halted and need to reload!!
+    'numItersForTrainExamplesHistory': 5,
 
 }
 
@@ -46,7 +46,7 @@ def main():
         log.info('Loading checkpoint "%s/%s...', args.load_folder_file[0], args.load_folder_file[1])
         nnet.load_checkpoint(g, args.load_folder_file[0], args.load_folder_file[1])
     else:
-        log.warning('Not loading a checkpoint!')
+        log.warning('Not loading a checkpoint (Here)!')
 
     log.info('Loading the Coach...')
     c = Coach(g, nnet, args_ref)

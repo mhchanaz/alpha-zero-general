@@ -168,9 +168,8 @@ class Board():
                             if count_num == 5:
                                 return WinState(True, cur_color)
 
-        # draw has very little value.
-        if not self.get_valid_moves().any():
-            return WinState(True, None)
+        if blank_nodes == 0: #当所有位置都被下完后，返回和局, Which is player 2's win
+            return WinState(True, -0.01)
 
 
         return WinState(False, None)

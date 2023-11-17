@@ -79,6 +79,9 @@ class MCTS():
         if self.Es[s] != 0:
             # terminal node
             return -self.Es[s]
+        if np.all(canonicalBoard != 0): # Full board
+            return 1e-4 # Slight reward for P2
+
 
         if s not in self.Ps:
             # leaf node
