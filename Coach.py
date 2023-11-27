@@ -38,7 +38,7 @@ class Coach():
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
     def createActors(self):
-        self.actors = [sp.remote(self.game, self.nnet, self.args_ref) for i in range(4)]
+        self.actors = [sp.remote(self.game, self.nnet, self.args_ref) for i in range(32)]
 
     def executeEpisodes(self):
         examples = [a.play.remote() for a in self.actors]
@@ -53,7 +53,7 @@ class Coach():
         only if it wins >= updateThreshold fraction of games.
         """
         self.createActors()
-        self.loadTrainExamples()
+        # self.loadTrainExamples()
         self.nnet.init_model()
         self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='best')
 
@@ -97,6 +97,14 @@ class Coach():
             self.nnet.train(trainExamples)
             nmcts = MCTS(self.game, self.nnet, self.args)
 
+            ### SKIPPING EVALUATION
+            log.info('ACCEPTING NEW MODEL')
+            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
+            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best')
+            continue
+            ###
+
+
             log.info('PITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game)
@@ -135,4 +143,4 @@ class Coach():
             log.info('Loading done!')
 
             # examples based on the model were already collected (loaded)
-            self.skipFirstSelfPlay = True
+            self.skipFirstSelfPlay = False

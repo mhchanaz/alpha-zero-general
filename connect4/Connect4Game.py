@@ -5,6 +5,7 @@ sys.path.append('..')
 from Game import Game
 from .Connect4Logic import Board
 
+directions = ([0,1],[1,0],[1,1],[-1,1])
 
 class Connect4Game(Game):
     """
@@ -30,51 +31,79 @@ class Connect4Game(Game):
         b.add_stone(action, player)
         return b.np_pieces, -player
 
+    def SgetNextState(self, board, player, action): # Used in getting smart moves only
+        b = self._base_board.with_np_pieces(np_pieces=np.copy(board))
+        b.add_stone(action, player)
+        return b.np_pieces, player, action
+
     def getValidMoves(self, board, player):
         "Any zero value in top row in a valid move"
-        valid_moves = self._base_board.with_np_pieces(np_pieces=board).get_valid_moves() # Filters out all the values outside 2 elements of existing
+        return self._base_board.with_np_pieces(np_pieces=board).get_valid_moves()
+
+    def getDanger(self, board, player, action):
+
+        y = action // 11
+        x = action % 11
+        b = self._base_board.with_np_pieces(np_pieces=board)
+
+        return b.get_danger_state(x, y, player, directions) # Action played and now its -player's turn, proceed the checks
+
+    """
+    def getSetup(self, board, player):
+        b = self._base_board.with_np_pieces(np_pieces=board)
+        winstate = b.get_setup_state()
+        if winstate.is_ended:
+            if winstate.winner == player:
+                return +1
+            elif winstate.winner == -player:
+                return -1
+            elif winstate.winner == -0.01:
+                return 0.01 * (player == -1) # Give less reward when winning via a draw
+            else:
+                raise ValueError('Unexpected winstate found: ', winstate)
+        else:
+            # 0 used to represent unfinished game.
+            return 0
+    """
+
+    def getSmartMoves(self, board, player):
+        "Any zero value in top row in a valid move"
+        valid_moves = self._base_board.with_np_pieces(np_pieces=board).get_filtered_moves() # Filters out all the values outside 2 elements of existing
 
         if np.all(self._base_board.with_np_pieces(np_pieces=board).np_pieces == 0): # first step
-            win_move_set = [0] * len(valid_moves)  # Initialize all elements to 0
-            win_move_set[69] = 1  # Set the specified index to 1
-            return valid_moves
-
-        win_move_set = None
-        stop_loss_move_set = None
-        for move, valid in enumerate(valid_moves): # One step away from win or losing
-            if not valid: continue
-            if -player == self.getGameEnded(*self.getNextState(board, player, move)):
-                win_move_set = [0] * len(valid_moves)  # Initialize all elements to 0
-                win_move_set[move] = 1  # Set the specified index to 1
-                break
-            if -player == self.getGameEnded(*self.getNextState(board, -player, move)):
-                stop_loss_move_set = [0] * len(valid_moves)  # Initialize all elements to 0
-                stop_loss_move_set[move] = 1  # Set the specified index to 1
-                break
-
-        if win_move_set is not None:
+            win_move_set = np.full(len(valid_moves), 0)  # Initialize all elements to 0
+            win_move_set[np.random.randint(0, 120)] = 1  # Set the specified index to 1
             return win_move_set
-        if stop_loss_move_set is not None:
-            return stop_loss_move_set
 
-        win_threat_move_set = None
-        stop_loss_threat_move_set = None
+        move_set = None
+        highest_priority = 10
+
         for move, valid in enumerate(valid_moves): # One step away from win or losing, if none of the above applies
             if not valid: continue
-            if -player == self.getDanger(*self.getNextState(board, player, move)):
-                win_move_threat_set = [0] * len(valid_moves)  # Initialize all elements to 0
-                win_move_threat_set[move] = 1  # Set the specified index to 1
-                break
-            if -player == self.getDanger(*self.getNextState(board, -player, move)):
-                stop_loss_threat_move_set = [0] * len(valid_moves)  # Initialize all elements to 0
-                stop_loss_threat_move_set[move] = 1  # Set the specified index to 1
-                break
+            priority = self.getDanger(*self.SgetNextState(board, player, move))
 
-        if win_threat_move_set is not None:
-            return win_threat_move_set
-        if stop_loss_threat_move_set is not None:
-            return stop_loss_threat_move_set
+            if (priority) and (priority <= highest_priority): # 0 is highest priority
+                if priority < highest_priority:
+                    move_set = np.full(len(valid_moves), 0)
+                move_set[move] = 1  # Set the specified index to 1
+                highest_priority = priority
 
+            priority = self.getDanger(*self.SgetNextState(board, -player, move))
+            priority += 1
+
+            if (priority) and (priority <= highest_priority): # 0 is highest priority
+                if priority < highest_priority:
+                    move_set = np.full(len(valid_moves), 0)
+                move_set[move] = 1  # Set the specified index to 1
+                highest_priority = priority
+        
+        if move_set is None:
+            return valid_moves
+
+        return move_set
+
+        # The following section is too greedy.
+        '''
         setup_move_set = [0] * len(valid_moves)
         have_setup = False
 
@@ -91,47 +120,11 @@ class Connect4Game(Game):
             return setup_move_set
         else:
             return valid_moves # No setups found
-
-        
-
-        
+        '''
 
     def getGameEnded(self, board, player):
         b = self._base_board.with_np_pieces(np_pieces=board)
         winstate = b.get_win_state()
-        if winstate.is_ended:
-            if winstate.winner is None:
-                # draw has very little value.
-                return 1e-4 * (player == -1) # Give less reward when winning via a draw
-            elif winstate.winner == player:
-                return +1
-            elif winstate.winner == -player:
-                return -1
-            else:
-                raise ValueError('Unexpected winstate found: ', winstate)
-        else:
-            # 0 used to represent unfinished game.
-            return 0
-
-    def getDanger(self, board, player):
-        b = self._base_board.with_np_pieces(np_pieces=board)
-        winstate = b.get_danger_state()
-        if winstate.is_ended:
-            if winstate.winner == player:
-                return +1
-            elif winstate.winner == -player:
-                return -1
-            elif winstate.winner == -0.01:
-                return 0.01 * (player == -1) # Give less reward when winning via a draw
-            else:
-                raise ValueError('Unexpected winstate found: ', winstate)
-        else:
-            # 0 used to represent unfinished game.
-            return 0
-
-    def getSetup(self, board, player):
-        b = self._base_board.with_np_pieces(np_pieces=board)
-        winstate = b.get_setup_state()
         if winstate.is_ended:
             if winstate.winner == player:
                 return +1

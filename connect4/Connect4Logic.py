@@ -8,8 +8,6 @@ DEFAULT_WIDTH = 11
 
 WinState = namedtuple('WinState', 'is_ended winner')
 
-
-
 def find_pattern(array, pattern):
     pattern_rows, pattern_cols = pattern.shape
 
@@ -55,8 +53,6 @@ def filtermoves(input_matrix):
 
     return combined_mask
 
-
-
 class Board():
     """
     Connect4 Board.
@@ -84,6 +80,13 @@ class Board():
 
     def get_valid_moves(self): 
         # Check for 0 in the entire array
+        result = self.np_pieces == 0
+
+        # Convert the result to a 1D binary array
+        return result.flatten().astype(int)
+
+    def get_filtered_moves(self): 
+        # Check for 0 in the entire array
         result = filtermoves(self.np_pieces)
 
         # Convert the result to a 1D binary array
@@ -102,6 +105,7 @@ class Board():
         directions = [[0,1],[1,0],[1,1],[-1,1]]
         visited_nodes = {}
         blank_nodes = 0
+        # print(board)
         for cur_color in [-1,1]: #依次寻找黑色棋子和白色棋子的联通性
             visited_nodes = {}
             for i in range(11):
@@ -168,56 +172,141 @@ class Board():
                             if count_num == 5:
                                 return WinState(True, cur_color)
 
-        # draw has very little value.
-        if not self.get_valid_moves().any():
-            return WinState(True, None)
+        if blank_nodes == 0: #当所有位置都被下完后，返回和局, Which is player 2's win
+            return WinState(True, -0.01)
 
 
         return WinState(False, None)
 
-    def get_danger_state(self):
+    def get_danger_state(self, y, x, player, directions): # Note x and y are reversed because of np matrix, -player's turn
         board = np.pad(self.np_pieces, 4, mode='wrap')
 
-        templates = (
-            np.array([[0, np.nan, np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, 1, np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, 1, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan, 1, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan, np.nan, 0]]),
-            np.array([[np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-                      [0, 1, 1, 1, 1, 0],
-                      [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]]),
-            np.array([[np.nan, np.nan, np.nan, np.nan, np.nan, 0],
-                      [np.nan, np.nan, np.nan, np.nan, 1, np.nan],
-                      [np.nan, np.nan, np.nan, 1, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, 1, np.nan, np.nan, np.nan, np.nan],
-                      [0, np.nan, np.nan, np.nan, np.nan, np.nan]]),
-            np.array([[np.nan, np.nan, 0, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 1, np.nan, np.nan, np.nan],
-                      [np.nan, np.nan, 0, np.nan, np.nan, np.nan]])
-        )
+        x = x + 4
+        y = y + 4
+        current = board[x][y]
+        highest_priority = np.inf
+        mult_threats = 0
 
-        # Get the dimensions of the matrix and the template
-        matrix_rows, matrix_cols = board.shape
+        for direction in directions:
 
-        for template in templates:
-            if find_pattern(board, template):
-                return WinState(True, 1)
+            sum = 1
+            empty_end1 = False
+            empty_end2 = False
+            empty_middle = False
+            empty_middle_pos = 0
+            empty_middle_neg = 0
+            empty_middle_sum = 0
+            empty_middle_end1 = False
+            empty_middle_end2 = False
 
-        templates = tuple(arr * -1 for arr in templates)
+            for i in range(1,5): # positive dir
+                checking = board[x + i * direction[1]][y + i * direction[0]]
+                if checking != current:
+                    if checking == 0:
+                        if empty_middle == False:
+                            empty_middle = True
+                            empty_end1 = True
+                            continue
+                        else:
+                            empty_middle_end1 = True
+                    break
+                if empty_middle == True:
+                    empty_middle_pos += 1
+                    continue
+                sum += 1
+                
 
-        for template in templates:
-            if find_pattern(board, template):
-                return WinState(True, -1)
+            empty_middle = False
+            for i in range(1,5): # negative dir
+                checking = board[x - i * direction[1]][y - i * direction[0]]
+                if checking != current:
+                    if checking == 0:
+                        if empty_middle == False:
+                            empty_middle = True
+                            empty_end2 = True
+                            continue
+                        else:
+                            empty_middle_end2 = True
+                    break
+                if empty_middle == True:
+                    empty_middle_neg += 1
+                    continue
+                sum += 1
 
-        return WinState(False, None)
+            empty_middle_sum = sum + max(empty_middle_pos, empty_middle_neg)
+
+            if sum >= 5: # Wins
+                priority = 1
+                if highest_priority > priority: # Wins
+                    highest_priority = priority
+            
+            if sum == 4 and empty_end1 and empty_end2: # Threats
+                priority = 3
+                if highest_priority > priority: # threats
+                    highest_priority = priority
+
+            if (sum == 3 and empty_end1 and empty_end2) or (sum == 4 and (empty_end1 ^ empty_end2)) or (empty_middle_sum == 3 and empty_middle_end1 and empty_middle_end2) or (empty_middle_sum >= 4): # single small threat
+                mult_threats += 1
+
+            if mult_threats >= 2: # double 3 or similar threats
+                priority = 5
+                if highest_priority > priority: # threats
+                    highest_priority = priority
+
+        return highest_priority
+
+    def get_danger_state_backup(self, y, x, player, directions): # Note x and y are reversed because of np matrix, -player's turn
+        board = np.pad(self.np_pieces, 4, mode='wrap')
+
+        x = x + 4
+        y = y + 4
+        current = board[x][y]
+        highest_priority = np.inf
+        mult_threats = 0
+
+        for direction in directions: # Check immediate wins
+
+            sum = 1
+            empty_end1 = False
+            empty_end2 = False
+
+            for i in range(1,5): # positive dir
+                checking = board[x + i * direction[1]][y + i * direction[0]]
+                if checking != current:
+                    if checking == 0:
+                        empty_end1 = True
+                    break
+                sum += 1
+                
+
+            empty_middle = False
+            for i in range(1,5): # negative dir
+                checking = board[x - i * direction[1]][y - i * direction[0]]
+                if checking != current:
+                    if checking == 0:
+                        empty_end2 = True
+                    break
+                sum += 1
+
+            if sum >= 5: # Wins
+                priority = 1
+                if highest_priority > priority: # Wins
+                    highest_priority = priority
+            
+            if sum == 4 and empty_end1 and empty_end2: # Threats
+                priority = 3
+                if highest_priority > priority: # threats
+                    highest_priority = priority
+
+            if (sum == 3 and empty_end1 and empty_end2) or (sum == 4 and (empty_end1 ^ empty_end2)): # obvious double 3 or similar threats
+                mult_threats += 1
+
+            if mult_threats >= 2: # double 3 or similar threats
+                priority = 5
+                if highest_priority > priority: # threats
+                    highest_priority = priority
+
+        return highest_priority
 
     def get_setup_state(self):
         board = np.pad(self.np_pieces, 4, mode='wrap')
@@ -305,8 +394,6 @@ class Board():
                 return WinState(True, -1)
 
         return WinState(False, None)
-
-
 
     def with_np_pieces(self, np_pieces):
         """Create copy of board with specified pieces."""

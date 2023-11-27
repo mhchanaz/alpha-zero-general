@@ -15,18 +15,19 @@ coloredlogs.install(level='INFO')  # Change this to DEBUG to see more info.
 
 raw_args = {
     'numIters': 1000,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 7,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,        #
-    'updateThreshold': 0.4,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+    'updateThreshold': 0,     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 400,          # Number of games moves for MCTS to simulate.
-    'arenaCompare': 10,         # Number of games to play during arena play to determine if new net will be accepted.
+    'numMCTSSims': 200,          # Number of games moves for MCTS to simulate.
+    'arenaCompare': 2,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1,
 
     'checkpoint': './temp/',
     'load_model': False,
-    'load_folder_file': ('./temp','checkpoint_0.pth.tar'), # Change the checkpoint if training is halted and need to reload!!
-    'numItersForTrainExamplesHistory': 5,
+    'load_folder_file': ('./temp','checkpoint_0.pth.tar'),
+# Change the checkpoint if training is halted and need to reload!!
+    'numItersForTrainExamplesHistory': 3,
 
 }
 
